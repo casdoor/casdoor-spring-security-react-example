@@ -40,6 +40,10 @@ export const getUserinfo = () => {
   }).then((res) => res.json());
 };
 
+export const logout = () => {
+  localStorage.removeItem("token");
+};
+
 export const showMessage = (message) => {
   alert(message);
 };

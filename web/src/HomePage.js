@@ -28,6 +28,12 @@ class HomePage extends React.Component {
     }
   }
 
+  logout() {
+    Setting.logout();
+    Setting.showMessage("logout successfully");
+    Setting.goToLink("/");
+  }
+
   render() {
     if (Setting.isLoggedIn()) {
       if (this.state.account) {
@@ -47,6 +53,8 @@ class HomePage extends React.Component {
             />
             <br />
             <p>{this.state.account.username}</p>
+            <br />
+            <button onClick={this.logout}>Logout</button>
           </div>
         );
       } else {

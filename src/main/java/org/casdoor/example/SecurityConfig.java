@@ -1,19 +1,22 @@
 package org.casdoor.example;
 
+import org.casbin.casdoor.service.CasdoorAuthService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
+import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -40,12 +43,12 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        // Enable CORS and disable CSRF
+        // enable CORS and disable CSRF
         http = http.cors(corsConfig -> corsConfig
                 .configurationSource(configurationSource())
         ).csrf().disable();
 
-        // Set session management to stateless
+        // set session management to stateless
         http = http
                 .sessionManagement()
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
@@ -63,12 +66,20 @@ public class SecurityConfig {
         http = http
                 .exceptionHandling()
                 .authenticationEntryPoint(
-                        (request, response, ex) -> {
-                            ex.printStackTrace();
-                            ResponseUtils.fail(response, "unauthorized");
-                        }
+                        (request, response, ex) -> ResponseUtils.fail(response, "unauthorized")
                 )
                 .and();
+
+        // set logout handler
+        http.logout(logoutConfig ->
+                logoutConfig.logoutUrl("/api/logout")
+                        .addLogoutHandler(new LogoutHandler() {
+                            @Override
+                            public void logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
+
+                            }
+                        })
+        );
 
         // add JWT token filter
         http.addFilterBefore(
@@ -93,13 +104,4 @@ public class SecurityConfig {
         return source;
     }
 
-    @Bean
-    LogoutSuccessHandler logoutSuccessHandler() {
-        return (request, response, authentication) -> ResponseUtils.success(response, null);
-    }
-
-    @Bean
-    AuthenticationEntryPoint authenticationEntryPoint() {
-        return (request, response, authException) -> ResponseUtils.fail(response, "not logged in");
-    }
 }
