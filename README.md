@@ -7,7 +7,7 @@ A silent sign-in example is implemented through spring security and casdoor reac
 First, you need to clone the repository.
 
 ```shell
-git clone https://github.com/casdoor/spring-security-react-example
+git clone https://github.com/casdoor/casdoor-spring-security-react-example
 ```
 
 Then, download the corresponding Maven dependency and front-end dependency respectively.
