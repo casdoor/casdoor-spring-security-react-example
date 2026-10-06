@@ -14,26 +14,13 @@
 
 package org.casdoor.example.model;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class Result {
-
-    private Integer code;
-
-    private String status;
-
-    private Object data;
+public record Result(String status, String msg, Object data) {
 
     public static Result success(Object data) {
-        return new Result(200, "ok", data);
+        return new Result("ok", "", data);
     }
 
-    public static Result failure(String status) {
-        return new Result(500, status, null);
+    public static Result failure(String msg) {
+        return new Result("error", msg, null);
     }
 }

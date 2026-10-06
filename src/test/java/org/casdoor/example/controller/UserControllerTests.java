@@ -18,39 +18,52 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-public class UserControllerTests {
+class UserControllerTests {
+
+    @Autowired
+    private MockMvc mvc;
 
     @Test
-    void expectUnAuthenticatedWhenApiDoesNotExist(@Autowired MockMvc mvc) throws Exception {
-        mvc.perform(get("/api/404-not-found"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("unauthorized"));
-    }
-
-    @Test
-    void expectUnAuthenticatedWhenNotLoggedIn(@Autowired MockMvc mvc) throws Exception {
+    void userinfoNeedsAnAccessToken() throws Exception {
         mvc.perform(get("/api/userinfo"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("unauthorized"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value("error"));
     }
 
     @Test
-    void expectFailedToGetTokenWhenWrongCodeAndState(@Autowired MockMvc mvc) throws Exception {
-        mvc
-                .perform(post("/api/signin")
-                        .param("code", "")
-                        .param("state", "")
-                ).andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("Cannot get OAuth token."));
+    void userinfoReturnsTheClaimsOfTheToken() throws Exception {
+        mvc.perform(get("/api/userinfo").with(jwt().jwt(token -> token
+                        .claim("name", "alice")
+                        .claim("displayName", "Alice"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ok"))
+                .andExpect(jsonPath("$.data.name").value("alice"))
+                .andExpect(jsonPath("$.data.displayName").value("Alice"));
     }
 
+    @Test
+    void frontendIsAllowedToCallTheApis() throws Exception {
+        mvc.perform(options("/api/userinfo")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:3000")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:3000"));
+        mvc.perform(options("/api/userinfo")
+                        .header(HttpHeaders.ORIGIN, "https://evil.example.com")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
+                .andExpect(status().isForbidden());
+    }
 }

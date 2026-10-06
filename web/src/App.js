@@ -29,7 +29,17 @@ class App extends React.Component {
         Setting.setToken(res?.data);
         Setting.goToLink("/");
       }}
-      isGetTokenSuccessful={(res) => res?.status === "ok"}
+      isGetTokenSuccessful={(res) => {
+        if (res?.status === "ok") {
+          return true;
+        }
+        // signing in on this page (not in the silent sign-in iframe) failed
+        if (window === window.parent) {
+          Setting.showMessage(`Failed to sign in: ${res?.msg}`);
+          Setting.goToLink("/");
+        }
+        return false;
+      }}
     />
   );
 

@@ -14,15 +14,15 @@
 
 package org.casdoor.example.controller;
 
-import org.casbin.casdoor.entity.CasdoorUser;
-import org.casbin.casdoor.exception.CasdoorAuthException;
-import org.casbin.casdoor.service.CasdoorAuthService;
-import org.casdoor.example.model.CustomUserDetails;
+import org.casbin.casdoor.exception.AuthException;
+import org.casbin.casdoor.service.AuthService;
 import org.casdoor.example.model.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -33,41 +33,44 @@ public class UserController {
 
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
-    private final CasdoorAuthService casdoorAuthService;
-    private final String redirectUrl;
+    private final AuthService authService;
 
-    public UserController(CasdoorAuthService casdoorAuthService,
-                          @Value("${casdoor.redirect-url}") String redirectUrl) {
-        this.casdoorAuthService = casdoorAuthService;
-        this.redirectUrl = redirectUrl;
+    public UserController(AuthService authService) {
+        this.authService = authService;
     }
 
-    @GetMapping("/api/redirect-url")
-    public Result getRedirectUrl() {
-        try {
-            String signinUrl = casdoorAuthService.getSigninUrl(redirectUrl);
-            return Result.success(signinUrl);
-        } catch (CasdoorAuthException exception) {
-            logger.error("casdoor auth exception", exception);
-            return Result.failure(exception.getMessage());
-        }
-    }
-
+    /**
+     * Exchanges the code from Casdoor for an access token. The frontend checks the state before calling this.
+     */
     @PostMapping("/api/signin")
-    public Result signin(@RequestParam("code") String code, @RequestParam("state") String state) {
+    public ResponseEntity<Result> signin(@RequestParam String code, @RequestParam String state) {
         try {
-            String token = casdoorAuthService.getOAuthToken(code, state);
-            return Result.success(token);
-        } catch (CasdoorAuthException exception) {
-            logger.error("casdoor auth exception", exception);
-            return Result.failure(exception.getMessage());
+            return ResponseEntity.ok(Result.success(authService.getOAuthToken(code, state)));
+        } catch (AuthException exception) {
+            logger.error("failed to get the access token from Casdoor", exception);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Result.failure(exception.getMessage()));
         }
     }
 
+    /**
+     * Returns the signed-in user, read from the claims of the verified access token.
+     */
     @GetMapping("/api/userinfo")
-    public Result userinfo(Authentication authentication) {
-        CustomUserDetails customUserDetails = (CustomUserDetails) authentication.getPrincipal();
-        CasdoorUser casdoorUser = customUserDetails.getCasdoorUser();
-        return Result.success(casdoorUser);
+    public Result userinfo(@AuthenticationPrincipal Jwt jwt) {
+        return Result.success(jwt.getClaims());
+    }
+
+    /**
+     * Ends the Casdoor session of the access token.
+     */
+    @PostMapping("/api/logout")
+    public Result logout(@AuthenticationPrincipal Jwt jwt) {
+        try {
+            authService.logoutCurrentSession(jwt.getTokenValue());
+        } catch (RuntimeException exception) {
+            // the session may already have ended
+            logger.warn("failed to end the Casdoor session", exception);
+        }
+        return Result.success(null);
     }
 }

@@ -14,14 +14,17 @@
 
 import Sdk from "casdoor-js-sdk";
 
+// the Spring Boot backend
 export const ServerUrl = "http://localhost:8080";
 
+// the Casdoor application, the defaults are the public demo server https://door.casdoor.com
 const sdkConfig = {
-  serverUrl: "http://localhost:8000",
-  clientId: "ab9a5aaf648ae8ab4f1c",
-  appName: "application_rm47vn",
-  organizationName: "organization_carg1b",
+  serverUrl: "https://door.casdoor.com",
+  clientId: "294b09fbc17f95daf2fe",
+  appName: "app-vue-python-example",
+  organizationName: "casbin",
   redirectPath: "/callback",
+  signinPath: "/api/signin",
 };
 
 export const CasdoorSDK = new Sdk(sdkConfig);
@@ -39,10 +42,9 @@ export const goToLink = (link) => {
   window.location.href = link;
 };
 
-export const getRedirectUrl = () => {
-  return fetch(`${ServerUrl}/api/redirect-url`, {
-    method: "GET",
-  }).then((res) => res.json());
+// the sign-in URL carries a random state, kept in sessionStorage and checked by CasdoorSDK.signin() on the callback
+export const getSigninUrl = () => {
+  return CasdoorSDK.getSigninUrl();
 };
 
 export const getUserinfo = () => {
@@ -55,7 +57,15 @@ export const getUserinfo = () => {
 };
 
 export const logout = () => {
+  const token = localStorage.getItem("token");
   localStorage.removeItem("token");
+  // end the Casdoor session too, so the next sign-in asks for the password again
+  return fetch(`${ServerUrl}/api/logout`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }).catch(() => {});
 };
 
 export const showMessage = (message) => {

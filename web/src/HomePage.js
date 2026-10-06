@@ -31,21 +31,21 @@ class HomePage extends React.Component {
         if (res?.status === "ok") {
           this.setState({
             account: {
-              username: res.data.displayName,
+              username: res.data.displayName || res.data.name,
               avatar: res.data.avatar,
             },
           });
         } else {
-          Setting.showMessage(res?.status);
+          // the token has expired or is invalid, sign in again
+          Setting.showMessage(res?.msg);
+          Setting.logout().then(() => Setting.goToLink("/"));
         }
       });
     }
   }
 
   logout() {
-    Setting.logout();
-    Setting.showMessage("logout successfully");
-    Setting.goToLink("/");
+    Setting.logout().then(() => Setting.goToLink("/"));
   }
 
   render() {
